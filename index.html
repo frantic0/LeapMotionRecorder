@@ -1,0 +1,169 @@
+<html>
+<head>
+	<meta charset="utf-8">
+	<style>
+		body{
+		  font-family: 'Helvetica Neue', Helvetica, Arial, 'Lucida Grande', sans-serif;
+		}
+		#output{
+		  font-size: 66px;
+		  color: #005d98;
+		  text-align: left;
+		  position: fixed;
+		  bottom: 18px;
+		}
+		canvas {
+      position: fixed;
+    	width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+		}
+
+		#progress {
+		  background: #005d98;
+		  position: fixed;
+		  bottom: 0;
+		  left: 0;
+		  height: 16px;
+		  width: 0%;
+		}
+
+		/*img#connect-leap{
+
+		  max-width: 100%;
+		}*/
+
+		svg {
+      display: block;
+    }
+
+		#controls {
+			margin: auto;
+			position: absolute;
+			width: 100%;
+			height: 100%;
+			top: 80%;
+			left: 0;
+			z-index: 1;
+
+		}
+
+ 		#buttons_container{
+			margin: 20 20 20 20;
+			width: 100%;
+		}
+
+    #chart, svg {
+      margin: 0px;
+      padding: 0px;
+      height: 50%;
+      width: 50%;
+    }
+    </style>
+
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/84/three.min.js"></script>
+	<script src="https://js.leapmotion.com/leap-0.6.4.min.js"></script>
+	<script src="https://js.leapmotion.com/leap-plugins-0.1.12.min.js"></script>
+	<script src="https://js.leapmotion.com/leap-widgets-0.1.0.min.js"></script>
+	<script src="https://js.leapmotion.com/leap.rigged-hand-0.1.7.min.js"></script>
+	<script src="https://js.leapmotion.com/leap-plugins-0.1.12-utils.min.js"></script>
+
+	 <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
+
+  <script src="https://code.jquery.com/jquery-3.1.1.slim.min.js" integrity="sha384-A7FZj7v+d/sdmMqp/nOQwliLvUsJfDHW+k9Omg/a/EheAdgtzNs3hpfag6Ed950n" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js" integrity="sha384-DztdAPBWPRXSA/3eYEEUWrWCy7G5KFbe8fFjk5JAIxUYHKkDx6Qin1DkWx51bBrb" crossorigin="anonymous"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js" integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn" crossorigin="anonymous"></script>
+
+	<link rel="stylesheet" href="https://www.doc.gold.ac.uk/~fbern010/noUiSlider/nouislider.min.css"></script>
+  <script src="https://www.doc.gold.ac.uk/~fbern010/noUiSlider/nouislider.min.js"></script>
+
+	<!--<script src="https://www.doc.gold.ac.uk/~fbern010/nvd3/nv.d3.min.js"></script>-->
+	<!--<script src="https://www.doc.gold.ac.uk/~fbern010/nvd3/stream_layers.js"></script>-->
+
+</head>
+
+<body>
+
+    <div id="debugger"></div>
+
+    <h1>Leap JavaScript Sample</h1>
+
+    <div id="main">
+        <h3>Frame data:</h3>
+        <div id="frameData"></div>
+        <div style="clear:both;"></div>
+
+        <h3>Hand data:</h3>
+        <div id="handData"></div>
+        <div style="clear:both;"></div>
+
+        <h3>Finger data:</h3>
+        <div id="pointableData"></div>
+        <div style="clear:both;"></div>
+    </div>
+
+    <div id="controls">
+    		<div id="slider"></div>
+				<div id="buttons_container">
+	        <div class="btn-group btn-group-lg dropup">
+	            <button id="record" type="button" class="btn btn-secondary" >
+	                <i class="glyphicon glyphicon-record" ng-class="{orangerecordPending(), red: recording()}"></i>
+	                <span class="hotkey">R</span>ecord
+	            </button>
+	            <button id="crop" type="button" class="btn btn-secondary" ng-click="crop()" >
+	                <span style="margin-top: -2px; display: inline-block;     vertical-align: top;">[ ]</span>
+	                <span class="hotkey">C</span>rop
+	            </button>
+
+	            <button style="text-align:left" type="button" class="btn btn-secondary">
+	                <span>&#9654;</span>
+	                <span><i class="glyphicon glyphicon-pause"></i>
+	                </span>
+	                <span class="hotkey">P</span>layback
+	            </button>
+	        </div>
+					<div class="btn-group btn-group-lg dropup">
+						<button type="button" class="btn btn-secondary" ng-click="save()">Download</button>
+						<button type="button" class="btn btn-secondary dropdown-toggle" data-toggle="dropdown">
+							<span class="caret"></span>
+						</button>
+						<ul class="dropdown-menu" role="menu">
+							<li>
+									<a href="#" ng-click="save()"><b>Compressed</b></a>
+							</li>
+							<li>
+									<a href="#" ng-click="save('json')">As JSON</a>
+							</li>
+						</ul>
+						</div>
+				</div>
+    </div>
+
+    <script>
+        (window.controller = new Leap.Controller({background: true}))
+        .use('riggedHand')
+        .connect();
+    </script>
+
+
+</body>
+    <script>
+        var slider = document.getElementById('slider');
+
+        // slider.style.witdth = '50px';
+        // slider.style.height = '50px';
+        slider.style.margin = '20 20 20 20';
+
+        noUiSlider.create(slider, {
+        	start: [20, 80],
+        	connect: true,
+        	behaviour: 'drag',
+        	range: {
+        		'min': 0,
+        		'max': 100
+        	}
+        });
+    </script>
+</html>
