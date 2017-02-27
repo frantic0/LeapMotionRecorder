@@ -1,26 +1,585 @@
-/*                    
- * LeapJS Playback - v0.2.1 - 2017-02-27                    
- * http://github.com/leapmotion/leapjs-playback/                    
- *                    
- * Copyright 2017 LeapMotion, Inc                    
- *                    
- * Licensed under the Apache License, Version 2.0 (the "License");                    
- * you may not use this file except in compliance with the License.                    
- * You may obtain a copy of the License at                    
- *                    
- *     http://www.apache.org/licenses/LICENSE-2.0                    
- *                    
- * Unless required by applicable law or agreed to in writing, software                    
- * distributed under the License is distributed on an "AS IS" BASIS,                    
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.                    
- * See the License for the specific language governing permissions and                    
- * limitations under the License.                    
- *                    
- */                    
+/*
+ * LeapJS-Plugins  - v0.1.12 - 2016-11-16
+ * http://github.com/leapmotion/leapjs-plugins/
+ *
+ * Copyright 2016 LeapMotion, Inc
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software    
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
 
-;(function( window, undefined ){ 
+//CoffeeScript generated from main/bone-hand/leap.bone-hand.coffee
+(function() {
+  var HandMesh, THREE, armTopAndBottomRotation, baseBoneRotation, boneColor, boneHandLost, boneRadius, boneScale, initScene, jointColor, jointRadius, jointScale, material, onHand, scope;
+
+  scope = null;
+
+  THREE = typeof require !== 'undefined' ? require('three') : window.THREE;
+
+  initScene = function(targetEl, scale) {
+    var camera, far, height, near, renderer, width;
+    scope.scene = new THREE.Scene();
+    scope.rendererOps || (scope.rendererOps = {});
+    if (scope.rendererOps.alpha === void 0) {
+      scope.rendererOps.alpha = true;
+    }
+    scope.renderer = renderer = new THREE.WebGLRenderer(scope.rendererOps);
+    width = scope.width || window.innerWidth;
+    height = scope.height || window.innerHeight;
+    renderer.setClearColor(0x000000, 0);
+    renderer.setSize(width, height);
+    renderer.domElement.className = "leap-boneHand";
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    targetEl.appendChild(renderer.domElement);
+    near = 1;
+    far = 10000;
+    if (scale) {
+      near *= scale;
+      far *= scale;
+    }
+    scope.camera = camera = new THREE.PerspectiveCamera(45, width / height, near, far);
+    camera.position.set(0, 300, 500);
+    camera.lookAt(new THREE.Vector3(0, 160, 0));
+    scope.scene.add(camera);
+    if (!scope.width && !scope.height) {
+      window.addEventListener('resize', function() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+        renderer.setSize(width, height);
+        return renderer.render(scope.scene, camera);
+      }, false);
+    }
+    scope.render || (scope.render = function(timestamp) {
+      return renderer.render(scope.scene, scope.camera);
+    });
+    return scope.render();
+  };
+
+  baseBoneRotation = null;
+
+  jointColor = null;
+
+  boneColor = null;
+
+  boneScale = null;
+
+  jointScale = null;
+
+  boneRadius = null;
+
+  jointRadius = null;
+
+  material = null;
+
+  armTopAndBottomRotation = null;
+
+  HandMesh = (function() {
+    HandMesh.unusedHandMeshes = [];
+
+    HandMesh.get = function() {
+      var handMesh;
+      if (HandMesh.unusedHandMeshes.length === 0) {
+        handMesh = HandMesh.create();
+      }
+      handMesh = HandMesh.unusedHandMeshes.pop();
+      handMesh.show();
+      return handMesh;
+    };
+
+    HandMesh.prototype.replace = function() {
+      this.hide();
+      return HandMesh.unusedHandMeshes.push(this);
+    };
+
+    HandMesh.create = function() {
+      var mesh;
+      mesh = new HandMesh;
+      mesh.setVisibility(false);
+      HandMesh.unusedHandMeshes.push(mesh);
+      if (HandMesh.onMeshCreated) {
+        HandMesh.onMeshCreated(mesh);
+      }
+      return mesh;
+    };
+
+    function HandMesh() {
+      var boneCount, finger, i, j, mesh, _i, _j, _k, _l;
+      material = !isNaN(scope.opacity) ? new THREE.MeshPhongMaterial({
+        fog: false,
+        transparent: true,
+        opacity: scope.opacity
+      }) : new THREE.MeshPhongMaterial({
+        fog: false
+      });
+      boneRadius = 40 * boneScale;
+      jointRadius = 40 * jointScale;
+      this.fingerMeshes = [];
+      for (i = _i = 0; _i < 5; i = ++_i) {
+        finger = [];
+        boneCount = i === 0 ? 3 : 4;
+        for (j = _j = 0; 0 <= boneCount ? _j < boneCount : _j > boneCount; j = 0 <= boneCount ? ++_j : --_j) {
+          mesh = new THREE.Mesh(new THREE.SphereGeometry(jointRadius, 32, 32), material.clone());
+          mesh.name = "hand-bone-" + j;
+          mesh.material.color.copy(jointColor);
+          mesh.renderOrder = ((i * 9) + (2 * j)) / 36;
+          mesh.castShadow = true;
+          scope.scene.add(mesh);
+          finger.push(mesh);
+          mesh = new THREE.Mesh(new THREE.CylinderGeometry(boneRadius, boneRadius, 40, 32), material.clone());
+          mesh.name = "hand-joint-" + j;
+          mesh.material.color.copy(boneColor);
+          mesh.renderOrder = ((i * 9) + (2 * j) + 1) / 36;
+          mesh.castShadow = true;
+          scope.scene.add(mesh);
+          finger.push(mesh);
+        }
+        mesh = new THREE.Mesh(new THREE.SphereGeometry(jointRadius, 32, 32), material.clone());
+        mesh.material.color.copy(jointColor);
+        mesh.castShadow = true;
+        scope.scene.add(mesh);
+        finger.push(mesh);
+        this.fingerMeshes.push(finger);
+      }
+      if (scope.arm) {
+        this.armMesh = new THREE.Object3D;
+        this.armBones = [];
+        this.armSpheres = [];
+        for (i = _k = 0; _k <= 3; i = ++_k) {
+          this.armBones.push(new THREE.Mesh(new THREE.CylinderGeometry(boneRadius, boneRadius, (i < 2 ? 1000 : 100), 32), material.clone()));
+          this.armBones[i].material.color.copy(boneColor);
+          this.armBones[i].castShadow = true;
+          this.armBones[i].name = "ArmBone" + i;
+          if (i > 1) {
+            this.armBones[i].quaternion.multiply(armTopAndBottomRotation);
+          }
+          this.armMesh.add(this.armBones[i]);
+        }
+        this.armSpheres = [];
+        for (i = _l = 0; _l <= 3; i = ++_l) {
+          this.armSpheres.push(new THREE.Mesh(new THREE.SphereGeometry(jointRadius, 32, 32), material.clone()));
+          this.armSpheres[i].material.color.copy(jointColor);
+          this.armSpheres[i].castShadow = true;
+          this.armSpheres[i].name = "ArmSphere" + i;
+          this.armMesh.add(this.armSpheres[i]);
+        }
+        scope.scene.add(this.armMesh);
+      }
+    }
+
+    HandMesh.prototype.traverse = function(callback) {
+      var i, mesh, _i, _j, _len, _ref;
+      for (i = _i = 0; _i < 5; i = ++_i) {
+        _ref = this.fingerMeshes[i];
+        for (_j = 0, _len = _ref.length; _j < _len; _j++) {
+          mesh = _ref[_j];
+          callback(mesh);
+        }
+      }
+      return this.armMesh && this.armMesh.traverse(callback);
+    };
+
+    HandMesh.prototype.scaleTo = function(hand) {
+      var armLenScale, armWidthScale, baseScale, bone, boneXOffset, finger, fingerBoneLengthScale, halfArmLength, i, j, mesh, _i, _j;
+      baseScale = hand.middleFinger.proximal.length / this.fingerMeshes[2][1].geometry.parameters.height;
+      for (i = _i = 0; _i < 5; i = ++_i) {
+        finger = hand.fingers[i];
+        j = 0;
+        while (true) {
+          if (j === this.fingerMeshes[i].length - 1) {
+            mesh = this.fingerMeshes[i][j];
+            mesh.scale.set(baseScale, baseScale, baseScale);
+            break;
+          }
+          bone = finger.bones[3 - (j / 2)];
+          mesh = this.fingerMeshes[i][j];
+          mesh.scale.set(baseScale, baseScale, baseScale);
+          j++;
+          mesh = this.fingerMeshes[i][j];
+          fingerBoneLengthScale = bone.length / mesh.geometry.parameters.height;
+          mesh.scale.set(baseScale, fingerBoneLengthScale, baseScale);
+          j++;
+        }
+      }
+      if (scope.arm) {
+        armLenScale = hand.arm.length / (this.armBones[0].geometry.parameters.height + this.armBones[0].geometry.parameters.radiusTop);
+        armWidthScale = hand.arm.width / (this.armBones[2].geometry.parameters.height + this.armBones[2].geometry.parameters.radiusTop);
+        for (i = _j = 0; _j <= 3; i = ++_j) {
+          this.armBones[i].scale.set(baseScale, (i < 2 ? armLenScale : armWidthScale), baseScale);
+          this.armSpheres[i].scale.set(baseScale, baseScale, baseScale);
+        }
+        boneXOffset = (hand.arm.width / 2) * 0.85;
+        halfArmLength = hand.arm.length / 2;
+        this.armBones[0].position.setX(boneXOffset);
+        this.armBones[1].position.setX(-boneXOffset);
+        this.armBones[2].position.setY(halfArmLength);
+        this.armBones[3].position.setY(-halfArmLength);
+        this.armSpheres[0].position.set(-boneXOffset, halfArmLength, 0);
+        this.armSpheres[1].position.set(boneXOffset, halfArmLength, 0);
+        this.armSpheres[2].position.set(boneXOffset, -halfArmLength, 0);
+        this.armSpheres[3].position.set(-boneXOffset, -halfArmLength, 0);
+      }
+      return this;
+    };
+
+    HandMesh.prototype.formTo = function(hand) {
+      var bone, finger, i, j, mesh, _i;
+      for (i = _i = 0; _i < 5; i = ++_i) {
+        finger = hand.fingers[i];
+        j = 0;
+        while (true) {
+          if (j === this.fingerMeshes[i].length - 1) {
+            mesh = this.fingerMeshes[i][j];
+            mesh.position.fromArray(bone.prevJoint);
+            break;
+          }
+          bone = finger.bones[3 - (j / 2)];
+          mesh = this.fingerMeshes[i][j];
+          mesh.position.fromArray(bone.nextJoint);
+          ++j;
+          mesh = this.fingerMeshes[i][j];
+          mesh.position.fromArray(bone.center());
+          mesh.setRotationFromMatrix((new THREE.Matrix4).fromArray(bone.matrix()));
+          mesh.quaternion.multiply(baseBoneRotation);
+          ++j;
+        }
+      }
+      if (this.armMesh) {
+        this.armMesh.position.fromArray(hand.arm.center());
+        this.armMesh.setRotationFromMatrix((new THREE.Matrix4).fromArray(hand.arm.matrix()));
+        this.armMesh.quaternion.multiply(baseBoneRotation);
+      }
+      return this;
+    };
+
+    HandMesh.prototype.setVisibility = function(visible) {
+      var i, j, _i, _j, _results;
+      for (i = _i = 0; _i < 5; i = ++_i) {
+        j = 0;
+        while (true) {
+          this.fingerMeshes[i][j].visible = visible;
+          ++j;
+          if (j === this.fingerMeshes[i].length) {
+            break;
+          }
+        }
+      }
+      if (scope.arm) {
+        _results = [];
+        for (i = _j = 0; _j <= 3; i = ++_j) {
+          this.armBones[i].visible = visible;
+          _results.push(this.armSpheres[i].visible = visible);
+        }
+        return _results;
+      }
+    };
+
+    HandMesh.prototype.show = function() {
+      return this.setVisibility(true);
+    };
+
+    HandMesh.prototype.hide = function() {
+      return this.setVisibility(false);
+    };
+
+    return HandMesh;
+
+  })();
+
+  onHand = function(hand) {
+    var handMesh;
+    if (!scope.scene) {
+      return;
+    }
+    handMesh = hand.data('handMesh');
+    if (!handMesh) {
+      handMesh = HandMesh.get().scaleTo(hand);
+      hand.data('handMesh', handMesh);
+      if (HandMesh.onMeshUsed) {
+        HandMesh.onMeshUsed(handMesh);
+      }
+    }
+    return handMesh.formTo(hand);
+  };
+
+  boneHandLost = function(hand) {
+    var handMesh;
+    handMesh = hand.data('handMesh');
+    if (handMesh) {
+      handMesh.replace();
+    }
+    return handMesh = hand.data('handMesh', null);
+  };
+
+  Leap.plugin('boneHand', function(options) {
+    var controller, scale;
+    if (options == null) {
+      options = {};
+    }
+    scope = options;
+    controller = this;
+    jointColor = (new THREE.Color).setHex(0x5daa00);
+    boneColor = (new THREE.Color).setHex(0xffffff);
+    scope.boneScale && (boneScale = scope.boneScale);
+    scope.jointScale && (jointScale = scope.jointScale);
+    scope.boneColor && (boneColor = scope.boneColor);
+    scope.jointColor && (jointColor = scope.jointColor);
+    scope.HandMesh = HandMesh;
+    scope.addShadowCamera = function() {
+      scope.light = new THREE.SpotLight(0xffffff, 1);
+      scope.light.castShadow = true;
+      scope.light.shadow.mapSize.width = 1024;
+      scope.light.shadow.mapSize.height = 1024;
+      scope.light.shadow.camera.near = 0.5 / 0.001;
+      scope.light.shadow.camera.far = 3 / 0.001;
+      scope.light.position.set(0, 1000, 1000);
+      scope.light.target.position.set(0, 0, -1000);
+      scope.camera.add(scope.light.target);
+      scope.camera.add(scope.light);
+      if (controller.plugins.transform) {
+        if (controller.plugins.transform.getScale()) {
+          scope.light.shadowCameraNear *= controller.plugins.transform.scale.x;
+          scope.light.shadowCameraFar *= controller.plugins.transform.scale.x;
+          scope.light.target.position.multiply(controller.plugins.transform.scale);
+          scope.light.position.multiply(controller.plugins.transform.scale);
+        }
+        if (controller.plugins.transform.vr === true) {
+          scope.camera.position.set(0, 0, 0);
+        }
+        if (controller.plugins.transform.vr === 'desktop') {
+          return scope.camera.position.set(0, 0.15, 0.3);
+        }
+      }
+    };
+    baseBoneRotation = (new THREE.Quaternion).setFromEuler(new THREE.Euler(Math.PI / 2, 0, 0));
+    boneScale = 1 / 6;
+    jointScale = 1 / 5;
+    boneRadius = null;
+    jointRadius = null;
+    material = null;
+    armTopAndBottomRotation = (new THREE.Quaternion).setFromEuler(new THREE.Euler(0, 0, Math.PI / 2));
+    HandMesh.onMeshCreated = function(mesh) {
+      return controller.emit('handMeshCreated', mesh);
+    };
+    HandMesh.onMeshUsed = function(mesh) {
+      return controller.emit('handMeshUsed', mesh);
+    };
+    this.use('handEntry');
+    this.use('handHold');
+    if (scope.scene === void 0) {
+      console.assert(scope.targetEl);
+      if (this.plugins.transform && this.plugins.transform.getScale()) {
+        scale = this.plugins.transform.scale.x;
+      }
+      initScene(scope.targetEl, scale);
+      scope.addShadowCamera();
+    }
+    if (scope.scene) {
+      HandMesh.create();
+      HandMesh.create();
+      if (Leap.version.major === 0 && Leap.version.minor < 7 && Leap.version.dot < 4) {
+        console.warn("BoneHand default scene render requires LeapJS > 0.6.3. You're running have " + Leap.version.full);
+      }
+      this.on('frameEnd', function(timestamp) {
+        if (scope.render) {
+          return scope.render(timestamp);
+        }
+      });
+    }
+    this.on('handLost', boneHandLost);
+    return {
+      hand: onHand
+    };
+  });
+
+}).call(this);
+
+//CoffeeScript generated from main/hand-entry/leap.hand-entry.coffee
+/*
+Emits controller events when a hand enters of leaves the frame
+"handLost" and "handFound"
+Each event also includes the hand object, which will be invalid for the handLost event.
+*/
+
+
+(function() {
+  var handEntry;
+
+  handEntry = function() {
+    var activeHandIds;
+    activeHandIds = [];
+    if (Leap.version.major === 0 && Leap.version.minor < 5) {
+      console.warn("The hand entry plugin requires LeapJS 0.5.0 or newer.");
+    }
+    this.on("deviceStopped", function() {
+      for (var i = 0, len = activeHandIds.length; i < len; i++){
+      id = activeHandIds[i];
+      activeHandIds.splice(i, 1);
+      // this gets executed before the current frame is added to the history.
+      this.emit('handLost', this.lastConnectionFrame.hand(id))
+      i--;
+      len--;
+    };
+    });
+    return {
+      frame: function(frame) {
+        var id, newValidHandIds, _i, _len, _results;
+        newValidHandIds = frame.hands.map(function(hand) {
+          return hand.id;
+        });
+        for (var i = 0, len = activeHandIds.length; i < len; i++){
+        id = activeHandIds[i];
+        if(  newValidHandIds.indexOf(id) == -1){
+          activeHandIds.splice(i, 1);
+          // this gets executed before the current frame is added to the history.
+          this.emit('handLost', this.frame(1).hand(id));
+          i--;
+          len--;
+        }
+      };
+        _results = [];
+        for (_i = 0, _len = newValidHandIds.length; _i < _len; _i++) {
+          id = newValidHandIds[_i];
+          if (activeHandIds.indexOf(id) === -1) {
+            activeHandIds.push(id);
+            _results.push(this.emit('handFound', frame.hand(id)));
+          } else {
+            _results.push(void 0);
+          }
+        }
+        return _results;
+      }
+    };
+  };
+
+  if ((typeof Leap !== 'undefined') && Leap.Controller) {
+    Leap.Controller.plugin('handEntry', handEntry);
+  } else if (typeof module !== 'undefined') {
+    module.exports.handEntry = handEntry;
+  } else {
+    throw 'leap.js not included';
+  }
+
+}).call(this);
+
+//CoffeeScript generated from main/hand-hold/leap.hand-hold.coffee
+(function() {
+  var handHold;
+
+  handHold = function() {
+    var dataFn, interFrameData;
+    interFrameData = {};
+    dataFn = function(prefix, hashOrKey, value) {
+      var dict, key, _name, _results;
+      interFrameData[_name = prefix + this.id] || (interFrameData[_name] = []);
+      dict = interFrameData[prefix + this.id];
+      if (value !== void 0) {
+        return dict[hashOrKey] = value;
+      } else if ({}.toString.call(hashOrKey) === '[object String]') {
+        return dict[hashOrKey];
+      } else {
+        _results = [];
+        for (key in hashOrKey) {
+          value = hashOrKey[key];
+          if (value === void 0) {
+            _results.push(delete dict[key]);
+          } else {
+            _results.push(dict[key] = value);
+          }
+        }
+        return _results;
+      }
+    };
+    return {
+      hand: {
+        data: function(hashOrKey, value) {
+          return dataFn.call(this, 'h', hashOrKey, value);
+        },
+        hold: function(object) {
+          if (object) {
+            return this.data({
+              holding: object
+            });
+          } else {
+            return this.hold(this.hovering());
+          }
+        },
+        holding: function() {
+          return this.data('holding');
+        },
+        release: function() {
+          var release;
+          release = this.data('holding');
+          this.data({
+            holding: void 0
+          });
+          return release;
+        },
+        hoverFn: function(getHover) {
+          return this.data({
+            getHover: getHover
+          });
+        },
+        hovering: function() {
+          var getHover;
+          if (getHover = this.data('getHover')) {
+            return this._hovering || (this._hovering = getHover.call(this));
+          }
+        }
+      },
+      pointable: {
+        data: function(hashOrKey, value) {
+          return dataFn.call(this, 'p', hashOrKey, value);
+        }
+      }
+    };
+  };
+
+  if ((typeof Leap !== 'undefined') && Leap.Controller) {
+    Leap.Controller.plugin('handHold', handHold);
+  } else if (typeof module !== 'undefined') {
+    module.exports.handHold = handHold;
+  } else {
+    throw 'leap.js not included';
+  }
+
+}).call(this);
+
+/*
+ * LeapJS Playback - v0.2.1 - 2014-05-14
+ * http://github.com/leapmotion/leapjs-playback/
+ *
+ * Copyright 2014 LeapMotion, Inc
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+;(function( window, undefined ){
  'use strict';
-  // see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions_and_function_scope/Strict_mode 
+  // see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions_and_function_scope/Strict_mode
 
 // Copyright (c) 2013 Pieroxy <pieroxy@pieroxy.net>
 // This work is free. You can redistribute it and/or modify it
@@ -32,84 +591,84 @@
 //
 // LZ-based compression algorithm, version 1.3.3
 var LZString = {
-  
-  
+
+
   // private property
   _keyStr : "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=",
   _f : String.fromCharCode,
-  
+
   compressToBase64 : function (input) {
     if (input == null) return "";
     var output = "";
     var chr1, chr2, chr3, enc1, enc2, enc3, enc4;
     var i = 0;
-    
+
     input = LZString.compress(input);
-    
+
     while (i < input.length*2) {
-      
+
       if (i%2==0) {
         chr1 = input.charCodeAt(i/2) >> 8;
         chr2 = input.charCodeAt(i/2) & 255;
-        if (i/2+1 < input.length) 
+        if (i/2+1 < input.length)
           chr3 = input.charCodeAt(i/2+1) >> 8;
-        else 
+        else
           chr3 = NaN;
       } else {
         chr1 = input.charCodeAt((i-1)/2) & 255;
         if ((i+1)/2 < input.length) {
           chr2 = input.charCodeAt((i+1)/2) >> 8;
           chr3 = input.charCodeAt((i+1)/2) & 255;
-        } else 
+        } else
           chr2=chr3=NaN;
       }
       i+=3;
-      
+
       enc1 = chr1 >> 2;
       enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
       enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
       enc4 = chr3 & 63;
-      
+
       if (isNaN(chr2)) {
         enc3 = enc4 = 64;
       } else if (isNaN(chr3)) {
         enc4 = 64;
       }
-      
+
       output = output +
         LZString._keyStr.charAt(enc1) + LZString._keyStr.charAt(enc2) +
           LZString._keyStr.charAt(enc3) + LZString._keyStr.charAt(enc4);
-      
+
     }
-    
+
     return output;
   },
-  
+
   decompressFromBase64 : function (input) {
     if (input == null) return "";
     var output = "",
-        ol = 0, 
+        ol = 0,
         output_,
         chr1, chr2, chr3,
         enc1, enc2, enc3, enc4,
         i = 0, f=LZString._f;
-    
+
     input = input.replace(/[^A-Za-z0-9\+\/\=]/g, "");
-    
+
     while (i < input.length) {
-      
+
       enc1 = LZString._keyStr.indexOf(input.charAt(i++));
       enc2 = LZString._keyStr.indexOf(input.charAt(i++));
       enc3 = LZString._keyStr.indexOf(input.charAt(i++));
       enc4 = LZString._keyStr.indexOf(input.charAt(i++));
-      
+
       chr1 = (enc1 << 2) | (enc2 >> 4);
       chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
       chr3 = ((enc3 & 3) << 6) | enc4;
-      
+
       if (ol%2==0) {
         output_ = chr1 << 8;
-        
+
         if (enc3 != 64) {
           output += f(output_ | chr2);
         }
@@ -118,7 +677,7 @@ var LZString = {
         }
       } else {
         output = output + f(output_ | chr1);
-        
+
         if (enc3 != 64) {
           output_ = chr2 << 8;
         }
@@ -128,9 +687,9 @@ var LZString = {
       }
       ol+=3;
     }
-    
+
     return LZString.decompress(output);
-    
+
   },
 
   compressToUTF16 : function (input) {
@@ -140,9 +699,9 @@ var LZString = {
         current,
         status = 0,
         f = LZString._f;
-    
+
     input = LZString.compress(input);
-    
+
     for (i=0 ; i<input.length ; i++) {
       c = input.charCodeAt(i);
       switch (status++) {
@@ -208,10 +767,10 @@ var LZString = {
           break;
       }
     }
-    
+
     return output + f(current + 32);
   },
-  
+
 
   decompressFromUTF16 : function (input) {
     if (input == null) return "";
@@ -220,10 +779,10 @@ var LZString = {
         status=0,
         i = 0,
         f = LZString._f;
-    
+
     while (i < input.length) {
       c = input.charCodeAt(i) - 32;
-      
+
       switch (status++) {
         case 0:
           current = c << 1;
@@ -289,18 +848,18 @@ var LZString = {
           status=0;
           break;
       }
-      
-      
+
+
       i++;
     }
-    
+
     return LZString.decompress(output);
     //return output;
-    
+
   },
 
 
-  
+
   compress: function (uncompressed) {
     if (uncompressed == null) return "";
     var i, value,
@@ -312,19 +871,19 @@ var LZString = {
         context_enlargeIn= 2, // Compensate for the first entry which should not count
         context_dictSize= 3,
         context_numBits= 2,
-        context_data_string="", 
-        context_data_val=0, 
+        context_data_string="",
+        context_data_val=0,
         context_data_position=0,
         ii,
         f=LZString._f;
-    
+
     for (ii = 0; ii < uncompressed.length; ii += 1) {
       context_c = uncompressed.charAt(ii);
       if (!Object.prototype.hasOwnProperty.call(context_dictionary,context_c)) {
         context_dictionary[context_c] = context_dictSize++;
         context_dictionaryToCreate[context_c] = true;
       }
-      
+
       context_wc = context_w + context_c;
       if (Object.prototype.hasOwnProperty.call(context_dictionary,context_wc)) {
         context_w = context_wc;
@@ -398,8 +957,8 @@ var LZString = {
             }
             value = value >> 1;
           }
-          
-          
+
+
         }
         context_enlargeIn--;
         if (context_enlargeIn == 0) {
@@ -411,7 +970,7 @@ var LZString = {
         context_w = String(context_c);
       }
     }
-    
+
     // Output the code for w.
     if (context_w !== "") {
       if (Object.prototype.hasOwnProperty.call(context_dictionaryToCreate,context_w)) {
@@ -483,8 +1042,8 @@ var LZString = {
           }
           value = value >> 1;
         }
-        
-        
+
+
       }
       context_enlargeIn--;
       if (context_enlargeIn == 0) {
@@ -492,7 +1051,7 @@ var LZString = {
         context_numBits++;
       }
     }
-    
+
     // Mark the end of the stream
     value = 2;
     for (i=0 ; i<context_numBits ; i++) {
@@ -506,7 +1065,7 @@ var LZString = {
       }
       value = value >> 1;
     }
-    
+
     // Flush the last char
     while (true) {
       context_data_val = (context_data_val << 1);
@@ -518,7 +1077,7 @@ var LZString = {
     }
     return context_data_string;
   },
-  
+
   decompress: function (compressed) {
     if (compressed == null) return "";
     if (compressed == "") return null;
@@ -535,11 +1094,11 @@ var LZString = {
         c,
         f = LZString._f,
         data = {string:compressed, val:compressed.charCodeAt(0), position:32768, index:1};
-    
+
     for (i = 0; i < 3; i += 1) {
       dictionary[i] = i;
     }
-    
+
     bits = 0;
     maxpower = Math.pow(2,2);
     power=1;
@@ -553,9 +1112,9 @@ var LZString = {
       bits |= (resb>0 ? 1 : 0) * power;
       power <<= 1;
     }
-    
+
     switch (next = bits) {
-      case 0: 
+      case 0:
           bits = 0;
           maxpower = Math.pow(2,8);
           power=1;
@@ -571,7 +1130,7 @@ var LZString = {
           }
         c = f(bits);
         break;
-      case 1: 
+      case 1:
           bits = 0;
           maxpower = Math.pow(2,16);
           power=1;
@@ -587,7 +1146,7 @@ var LZString = {
           }
         c = f(bits);
         break;
-      case 2: 
+      case 2:
         return "";
     }
     dictionary[3] = c;
@@ -596,7 +1155,7 @@ var LZString = {
       if (data.index > data.string.length) {
         return "";
       }
-      
+
       bits = 0;
       maxpower = Math.pow(2,numBits);
       power=1;
@@ -612,7 +1171,7 @@ var LZString = {
       }
 
       switch (c = bits) {
-        case 0: 
+        case 0:
           bits = 0;
           maxpower = Math.pow(2,8);
           power=1;
@@ -631,7 +1190,7 @@ var LZString = {
           c = dictSize-1;
           enlargeIn--;
           break;
-        case 1: 
+        case 1:
           bits = 0;
           maxpower = Math.pow(2,16);
           power=1;
@@ -649,15 +1208,15 @@ var LZString = {
           c = dictSize-1;
           enlargeIn--;
           break;
-        case 2: 
+        case 2:
           return result;
       }
-      
+
       if (enlargeIn == 0) {
         enlargeIn = Math.pow(2, numBits);
         numBits++;
       }
-      
+
       if (dictionary[c]) {
         entry = dictionary[c];
       } else {
@@ -668,18 +1227,18 @@ var LZString = {
         }
       }
       result += entry;
-      
+
       // Add w+entry[0] to the dictionary.
       dictionary[dictSize++] = w + entry.charAt(0);
       enlargeIn--;
-      
+
       w = entry;
-      
+
       if (enlargeIn == 0) {
         enlargeIn = Math.pow(2, numBits);
         numBits++;
       }
-      
+
     }
   }
 };
@@ -947,6 +1506,7 @@ Recording.prototype = {
   // Accepts an optional `factor` integer, which is the number of frames
   // discarded for every frame kept.
   cullFrames: function (factor) {
+    console.log('cull frames', factor);
     factor || (factor = 1);
     for (var i = 0; i < this.frameData.length; i++) {
       this.frameData.splice(i, factor);
@@ -972,7 +1532,7 @@ Recording.prototype = {
 
     var newMetaData = {
       formatVersion: 2,
-      generatedBy: 'LeapJS Playback 0.2.1',
+      generatedBy: 'LeapJS Playback 0.2.0',
       frames: this.rightCropPosition - this.leftCropPosition,
       protocolVersion: this.options.requestProtocolVersion,
       serviceVersion: this.options.serviceVersion,
@@ -985,11 +1545,6 @@ Recording.prototype = {
     for (var key in newMetaData) {
       this.metadata[key] = newMetaData[key];
     }
-
-    if (!this.metadata.title && this.url){
-      this.metadata.title = this.url.replace(/(\.json)?(\.lz)?$/, '')
-    }
-
   },
 
   // returns an array
@@ -1219,14 +1774,15 @@ Recording.prototype = {
   loadFrameData: function (callback) {
     var xhr = new XMLHttpRequest(),
         url = this.url,
-        recording = this;
+        recording = this,
+        contentLength = 0;
 
     xhr.onreadystatechange = function () {
       if (xhr.readyState === xhr.DONE) {
         if (xhr.status === 200 || xhr.status === 0) {
           if (xhr.responseText) {
 
-            recording.readFileData(xhr.responseText, callback);
+            recording.finishLoad(xhr.responseText, callback);
 
           } else {
             console.error('Leap Playback: "' + url + '" seems to be unreachable or the file is empty.');
@@ -1256,17 +1812,15 @@ Recording.prototype = {
     xhr.send(null);
   },
 
-  readFileData: function(responseData, callback){
+  finishLoad: function(responseData, callback){
 
     var url = this.url;
 
-    if (url && url.split('.')[url.split('.').length - 1] == 'lz') {
+    if (url.split('.')[url.split('.').length - 1] == 'lz') {
       responseData = this.decompress(responseData);
     }
 
-    if ( Leap._.isString(responseData) ) {
-      responseData = JSON.parse(responseData);
-    }
+    responseData = JSON.parse(responseData);
 
     if (responseData.metadata.formatVersion == 2) {
       responseData.frames = this.unPackFrameData(responseData.frames);
@@ -1274,7 +1828,7 @@ Recording.prototype = {
 
     this.metadata = responseData.metadata;
 
-    this.setFrames(responseData.frames);
+    console.log('Recording loaded:', this.metadata);
 
     this.loading = false;
 
@@ -1282,6 +1836,24 @@ Recording.prototype = {
       callback.call(this, responseData.frames);
     }
 
+  },
+
+  loadCompressedRecording: function(compressedData, callback) {
+    var decompressedData = this.decompress(compressedData);
+    decompressedData = JSON.parse(decompressedData);
+    if (decompressedData.metadata.formatVersion == 2) {
+      decompressedData.frames = this.unPackFrameData(decompressedData.frames);
+    }
+
+    this.metadata = decompressedData.metadata;
+
+    console.log('Recording loaded:', this.metadata);
+
+    this.loading = false;
+
+    if (callback) {
+      callback.call(this, decompressedData.frames);
+    }
   }
 
 };
@@ -1294,8 +1866,7 @@ Recording.prototype = {
     var player = this;
     options || (options = {});
 
-    // make sure Recording is accessible externally.
-    this.Recording = Recording;
+//    this.frameData = [];
 
     this.options = options;
     this.recording = options.recording;
@@ -1311,8 +1882,7 @@ Recording.prototype = {
 
 
     if (options.recording) {
-      // string check via underscore.js
-      if (toString.call(options.recording) == '[object String]') {
+      if (Object.prototype.toString.call(options.recording) == '[object String]') {
         options.recording = {
           url: options.recording
         }
@@ -1343,22 +1913,7 @@ Recording.prototype = {
       this.stepFrameLoop = function (timestamp) {
         if (player.state != 'playing') return;
 
-        if (player.options.lockStep){
-
-          // same as in sendFrameAt:
-          if (!player.recording.advanceFrame()){
-            player.pause();
-            player.controller.emit('playback.playbackFinished', player);
-            return
-          }
-
-          player.sendFrame( player.recording.currentFrame() );
-
-        } else {
-
-          player.sendFrameAt(timestamp || performance.now());
-
-        }
+        player.sendFrameAt(timestamp || performance.now());
 
         requestAnimationFrame(player.stepFrameLoop);
       };
@@ -1386,10 +1941,10 @@ Recording.prototype = {
               player.setGraphic();
               player.idle();
             } else if (data.hands.length == 0) {
-              if (player.userHasControl) {
+              if (player.userHasControl && player.resumeOnHandLost) {
                 player.userHasControl = false;
-                player.setGraphic('wave');
                 player.controller.emit('playback.userReleaseControl');
+                player.setGraphic('wave');
               }
 
             }
@@ -1471,8 +2026,6 @@ Recording.prototype = {
 
       var frame = new Leap.Frame(frameData);
 
-      this.controller.emit('playback.beforeSendFrame', frameData, frame);
-
       // send a deviceFrame to the controller:
       // this frame gets picked up by the controllers own animation loop.
 
@@ -1493,7 +2046,6 @@ Recording.prototype = {
 
     setFrameIndex: function (frameIndex) {
       if (frameIndex != this.recording.frameIndex) {
-        if (frameIndex < 0) frameIndex = this.recording.frameCount - 1;
         this.recording.frameIndex = frameIndex % this.recording.frameCount;
         this.sendFrame(this.recording.currentFrame());
       }
@@ -1531,11 +2083,10 @@ Recording.prototype = {
     },
 
     toggle: function () {
-      if (this.state == 'playing') {
-        this.pause();
-      } else {
-        // handle recording, etc.
+      if (this.state == 'idle') {
         this.play();
+      } else if (this.state == 'playing') {
+        this.pause();
       }
     },
 
@@ -1547,13 +2098,7 @@ Recording.prototype = {
       this.stop();
       this.state = 'recording';
       this.controller.connection.protocol = this.recordProtocol;
-
-      if (!this.controller.streaming()) {
-        this.setGraphic('connect');
-      }
-      // If already showing connect, setGraphic will have no effect.
-      this.showOverlay();
-
+      this.setGraphic('connect');
       this.controller.emit('playback.record', this)
     },
 
@@ -1577,9 +2122,10 @@ Recording.prototype = {
     },
 
     finishRecording: function () {
-      this.idle();
+      // change to the playbackHandler which suppresses frames:
+      this.controller.connection.protocol = this.playbackProtocol;
       this.recording.setFrames(this.recording.frameData);
-      this.controller.emit('playback.recordingFinished', this);
+      this.controller.emit('playback.recordingFinished', this)
     },
 
 
@@ -1591,11 +2137,6 @@ Recording.prototype = {
       return this.recording.loading;
     },
 
-    playbackMode: function(){
-      this.state = 'idle';
-      this.controller.connection.protocol = this.playbackProtocol;
-    },
-
 
     /* Plays back the provided frame data
      * Params {object|boolean}:
@@ -1604,8 +2145,7 @@ Recording.prototype = {
      */
     play: function () {
       if (this.state === 'playing') return;
-
-      if ( !this.recording || this.loading() || this.recording.blank() ) return;
+      if ( this.loading() || this.recording.blank() ) return;
 
       this.state = 'playing';
       this.controller.connection.protocol = this.playbackProtocol;
@@ -1615,10 +2155,8 @@ Recording.prototype = {
       // prevent the normal controller response while playing
       this.controller.connection.removeAllListeners('frame');
       this.controller.connection.on('frame', function (frame) {
-
-         // resume play when hands are removed:
-        if (player.pauseOnHand && player.autoPlay && player.state == 'idle' && frame.hands.length == 0) {
-          player.controller.emit('playback.userReleaseControl');
+        // resume play when hands are removed:
+        if (player.resumeOnHandLost && player.autoPlay && player.state == 'idle' && frame.hands.length == 0) {
           player.play();
         }
 
@@ -1643,15 +2181,13 @@ Recording.prototype = {
         this.recording.addFrame(frameData);
         this.hideOverlay();
       } else if ( !this.recording.blank() ) {
-        // play will detect state and emit recordingFinished
-        // this should actually be split out in to discrete end-recording-state and begin-play-state handlers :-/
         this.finishRecording();
       }
     },
 
 
     // Accepts a hash with any of
-    // URL, recording, metadata
+    // URL, recording, metadata, compressedRecording
     // once loaded, the recording is immediately activated
     setRecording: function (options) {
       var player = this;
@@ -1662,13 +2198,16 @@ Recording.prototype = {
       // this is called on the context of the recording
       var loadComplete = function (frames) {
 
+        this.setFrames(frames);
+
         if (player.recording != this){
+          console.log('recordings changed during load');
           return
         }
 
         if (player.autoPlay) {
           player.play();
-          if ( player.pauseOnHand && !controller.streaming() ) {
+          if (player.pauseOnHand && !player.controller.streaming() ) {
             player.setGraphic('connect');
           }
         }
@@ -1709,6 +2248,10 @@ Recording.prototype = {
           player.controller.emit('playback.ajax:complete', player, this);
         });
 
+      } else if (options.compressedRecording) {
+        this.recording.loadCompressedRecording(options.compressedRecording, function(frames){
+          loadComplete.call(this, frames);
+        });
       }
 
 
@@ -1719,11 +2262,6 @@ Recording.prototype = {
     hideOverlay: function () {
       if (!this.overlay) return;
       this.overlay.style.display = 'none';
-    },
-
-    showOverlay: function () {
-      if (!this.overlay) return;
-      this.overlay.style.display = 'block';
     },
 
 
@@ -1757,13 +2295,11 @@ Recording.prototype = {
   // - overlay: [boolean or DOM element] Whether or not to show the overlay: "Connect your Leap Motion Controller"
   //            if a DOM element is passed, that will be shown/hidden instead of the default message.
   // - pauseOnHand: [boolean true] Whether to stop playback when a hand is in field of view
-  // - resumeOnHandLost: [boolean true] Whether to stop playback when a hand is in field of view
+  // - resumeOnHandLost: [boolean true] Whether to resume playback after the hand leaves the frame
   // - requiredProtocolVersion: clients connected with a lower protocol number will not be able to take control of the
   // - timeBetweenLoops: [number, ms] delay between looping playback
   // controller with their device.  This option, if set, ovverrides autoPlay
   // - pauseHotkey: [number or false, default: 32 (spacebar)] - keycode for pause, bound to body
-  // - lockStep: replays one recording frame per animation frame, exactly. Rather than trying to preserve playback
-  // speed of the original recording.
   var playback = function (scope) {
     var controller = this;
     var autoPlay = scope.autoPlay;
@@ -1771,6 +2307,9 @@ Recording.prototype = {
 
     var pauseOnHand = scope.pauseOnHand;
     if (pauseOnHand === undefined) pauseOnHand = true;
+
+    var resumeOnHandLost = scope.resumeOnHandLost;
+    if (resumeOnHandLost === undefined) resumeOnHandLost = true;
 
     var timeBetweenLoops = scope.timeBetweenLoops;
     if (timeBetweenLoops === undefined) timeBetweenLoops = 50;
@@ -1782,9 +2321,6 @@ Recording.prototype = {
 
     var loop = scope.loop;
     if (loop === undefined) loop = true;
-
-    var lockStep = scope.lockStep ;
-    if (lockStep  === undefined) lockStep  = false;
 
     var overlay = scope.overlay;
     // A better fix would be to set an onload handler for this, rather than disable the overlay.
@@ -1810,19 +2346,19 @@ Recording.prototype = {
 
     }
 
+
     scope.player = new Player(this, {
       recording: scope.recording,
       loop: loop,
       pauseHotkey: pauseHotkey,
-      timeBetweenLoops: timeBetweenLoops,
-      lockStep: lockStep
+      timeBetweenLoops: timeBetweenLoops
     });
-
 
     // By doing this, we allow player methods to be accessible on the scope
     // this is the controller
     scope.player.overlay = overlay;
     scope.player.pauseOnHand = pauseOnHand;
+    scope.player.resumeOnHandLost = resumeOnHandLost;
     scope.player.requiredProtocolVersion = requiredProtocolVersion;
     scope.player.autoPlay = autoPlay;
 
@@ -1878,3 +2414,277 @@ Recording.prototype = {
 
 }).call(this);
 }( window ));
+//CoffeeScript generated from main/screen-position/leap.screen-position.coffee
+/*
+Adds the "screenPosition" method by default to hands and pointables.  This returns a vec3 (an array of length 3)
+with [x,y,z] screen coordinates indicating where the hand is, originating from the bottom left.
+This method can accept an optional vec3, allowing it to convert any arbitrary vec3 of coordinates.
+
+Custom positioning methods can be passed in, allowing different scaling techniques,
+e.g., http://msdn.microsoft.com/en-us/library/windows/hardware/gg463319.aspx (Pointer Ballistics)
+Here we scale based upon the interaction box and screen size:
+
+options:
+  scale, scaleX, and scaleY.  They all default to 1.
+  verticalOffset: in pixels.  This number is added to the returned Y value.  Defaults to 0.
+
+
+
+controller.use 'screenPosition', {
+  method: (positionVec3)->
+    Arguments for Leap.vec3 are (out, a, b)
+    [
+      Leap.vec3.subtract(positionVec3, positionVec3, @frame.interactionBox.center)
+      Leap.vec3.divide(positionVec3, positionVec3, @frame.interactionBox.size)
+      Leap.vec3.multiply(positionVec3, positionVec3, [document.body.offsetWidth, document.body.offsetHeight, 0])
+    ]
+}
+More info on vec3 can be found, here: http://glmatrix.net/docs/2.2.0/symbols/vec3.html
+*/
+
+
+(function() {
+  var screenPosition;
+
+  screenPosition = function(options) {
+    var baseScale, baseVerticalOffset, position, positioningMethods;
+    if (options == null) {
+      options = {};
+    }
+    options.positioning || (options.positioning = 'absolute');
+    options.scale || (options.scale = 1);
+    options.scaleX || (options.scaleX = 1);
+    options.scaleY || (options.scaleY = 1);
+    options.scaleZ || (options.scaleZ = 1);
+    options.verticalOffset || (options.verticalOffset = 0);
+    baseScale = 6;
+    baseVerticalOffset = -100;
+    positioningMethods = {
+      absolute: function(positionVec3) {
+        return [(window.innerWidth / 2) + (positionVec3[0] * baseScale * options.scale * options.scaleX), window.innerHeight + baseVerticalOffset + options.verticalOffset - (positionVec3[1] * baseScale * options.scale * options.scaleY), positionVec3[2] * baseScale * options.scale * options.scaleZ];
+      }
+    };
+    position = function(vec3, memoize) {
+      var screenPositionVec3;
+      if (memoize == null) {
+        memoize = false;
+      }
+      screenPositionVec3 = typeof options.positioning === 'function' ? options.positioning.call(this, vec3) : positioningMethods[options.positioning].call(this, vec3);
+      if (memoize) {
+        this.screenPositionVec3 = screenPositionVec3;
+      }
+      return screenPositionVec3;
+    };
+    return {
+      hand: {
+        screenPosition: function(vec3) {
+          return position.call(this, vec3 || this.palmPosition, !vec3);
+        }
+      },
+      pointable: {
+        screenPosition: function(vec3) {
+          return position.call(this, vec3 || this.tipPosition, !vec3);
+        }
+      }
+    };
+  };
+
+  if ((typeof Leap !== 'undefined') && Leap.Controller) {
+    Leap.Controller.plugin('screenPosition', screenPosition);
+  } else if (typeof module !== 'undefined') {
+    module.exports.screenPosition = screenPosition;
+  } else {
+    throw 'leap.js not included';
+  }
+
+}).call(this);
+
+//CoffeeScript generated from main/transform/leap.transform.coffee
+(function() {
+  Leap.plugin('transform', function(scope) {
+    var noop, transformDirections, transformMat4Implicit0, transformPositions, transformWithMatrices, _directionTransform;
+    if (scope == null) {
+      scope = {};
+    }
+    noop = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+    _directionTransform = new THREE.Matrix4;
+    if (scope.vr === true) {
+      this.setOptimizeHMD(true);
+      scope.quaternion = (new THREE.Quaternion).setFromRotationMatrix((new THREE.Matrix4).set(-1, 0, 0, 0, 0, 0, -1, 0, 0, -1, 0, 0, 0, 0, 0, 1));
+      scope.scale = 0.001;
+      scope.position = new THREE.Vector3(0, 0, -0.08);
+    }
+    if (scope.vr === 'desktop') {
+      scope.scale = 0.001;
+    }
+    scope.getTransform = function(hand) {
+      var matrix;
+      if (scope.matrix) {
+        matrix = typeof scope.matrix === 'function' ? scope.matrix(hand) : scope.matrix;
+        if (window['THREE'] && matrix instanceof THREE.Matrix4) {
+          return matrix.elements;
+        } else {
+          return matrix;
+        }
+      } else if (scope.position || scope.quaternion || scope.scale) {
+        _directionTransform.set.apply(_directionTransform, noop);
+        if (scope.quaternion) {
+          _directionTransform.makeRotationFromQuaternion(typeof scope.quaternion === 'function' ? scope.quaternion(hand) : scope.quaternion);
+        }
+        if (scope.position) {
+          _directionTransform.setPosition(typeof scope.position === 'function' ? scope.position(hand) : scope.position);
+        }
+        return _directionTransform.elements;
+      } else {
+        return noop;
+      }
+    };
+    scope.getScale = function(hand) {
+      if (!isNaN(scope.scale)) {
+        scope.scale = new THREE.Vector3(scope.scale, scope.scale, scope.scale);
+      }
+      if (typeof scope.scale === 'function') {
+        return scope.scale(hand);
+      } else {
+        return scope.scale;
+      }
+    };
+    transformPositions = function(matrix, vec3s) {
+      var vec3, _i, _len, _results;
+      _results = [];
+      for (_i = 0, _len = vec3s.length; _i < _len; _i++) {
+        vec3 = vec3s[_i];
+        if (vec3) {
+          _results.push(Leap.vec3.transformMat4(vec3, vec3, matrix));
+        } else {
+          _results.push(void 0);
+        }
+      }
+      return _results;
+    };
+    transformMat4Implicit0 = function(out, a, m) {
+      var x, y, z;
+      x = a[0];
+      y = a[1];
+      z = a[2];
+      out[0] = m[0] * x + m[4] * y + m[8] * z;
+      out[1] = m[1] * x + m[5] * y + m[9] * z;
+      out[2] = m[2] * x + m[6] * y + m[10] * z;
+      return out;
+    };
+    transformDirections = function(matrix, vec3s) {
+      var vec3, _i, _len, _results;
+      _results = [];
+      for (_i = 0, _len = vec3s.length; _i < _len; _i++) {
+        vec3 = vec3s[_i];
+        if (vec3) {
+          _results.push(transformMat4Implicit0(vec3, vec3, matrix));
+        } else {
+          _results.push(void 0);
+        }
+      }
+      return _results;
+    };
+    transformWithMatrices = function(hand, transform, scale) {
+      var finger, scalarScale, _i, _j, _len, _len1, _ref, _ref1;
+      transformDirections(transform, [hand.direction, hand.palmNormal, hand.palmVelocity, hand.arm.basis[0], hand.arm.basis[1], hand.arm.basis[2]]);
+      _ref = hand.fingers;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        finger = _ref[_i];
+        transformDirections(transform, [finger.direction, finger.metacarpal.basis[0], finger.metacarpal.basis[1], finger.metacarpal.basis[2], finger.proximal.basis[0], finger.proximal.basis[1], finger.proximal.basis[2], finger.medial.basis[0], finger.medial.basis[1], finger.medial.basis[2], finger.distal.basis[0], finger.distal.basis[1], finger.distal.basis[2]]);
+      }
+      Leap.glMatrix.mat4.scale(transform, transform, scale);
+      transformPositions(transform, [hand.palmPosition, hand.stabilizedPalmPosition, hand.sphereCenter, hand.arm.nextJoint, hand.arm.prevJoint]);
+      _ref1 = hand.fingers;
+      for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
+        finger = _ref1[_j];
+        transformPositions(transform, [finger.carpPosition, finger.mcpPosition, finger.pipPosition, finger.dipPosition, finger.distal.nextJoint, finger.tipPosition]);
+      }
+      scalarScale = (scale[0] + scale[1] + scale[2]) / 3;
+      return hand.arm.width *= scalarScale;
+    };
+    return {
+      frame: function(frame) {
+        var finger, hand, len, _i, _j, _len, _len1, _ref, _ref1, _results;
+        if (!frame.valid || frame.data.transformed) {
+          return;
+        }
+        frame.data.transformed = true;
+        _ref = frame.hands;
+        _results = [];
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          hand = _ref[_i];
+          transformWithMatrices(hand, scope.getTransform(hand), (scope.getScale(hand) || new THREE.Vector3(1, 1, 1)).toArray());
+          if (scope.effectiveParent) {
+            transformWithMatrices(hand, scope.effectiveParent.matrixWorld.elements, scope.effectiveParent.scale.toArray());
+          }
+          len = null;
+          _ref1 = hand.fingers;
+          for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
+            finger = _ref1[_j];
+            len = Leap.vec3.create();
+            Leap.vec3.sub(len, finger.mcpPosition, finger.carpPosition);
+            finger.metacarpal.length = Leap.vec3.length(len);
+            Leap.vec3.sub(len, finger.pipPosition, finger.mcpPosition);
+            finger.proximal.length = Leap.vec3.length(len);
+            Leap.vec3.sub(len, finger.dipPosition, finger.pipPosition);
+            finger.medial.length = Leap.vec3.length(len);
+            Leap.vec3.sub(len, finger.tipPosition, finger.dipPosition);
+            finger.distal.length = Leap.vec3.length(len);
+          }
+          Leap.vec3.sub(len, hand.arm.prevJoint, hand.arm.nextJoint);
+          _results.push(hand.arm.length = Leap.vec3.length(len));
+        }
+        return _results;
+      }
+    };
+  });
+
+}).call(this);
+
+//CoffeeScript generated from main/version-check/leap.version-check.coffee
+(function() {
+  var versionCheck;
+
+  versionCheck = function(scope) {
+    scope.alert || (scope.alert = false);
+    scope.requiredProtocolVersion || (scope.requiredProtocolVersion = 6);
+    scope.disconnect || (scope.disconnect = true);
+    if ((typeof Leap !== 'undefined') && Leap.Controller) {
+      if (Leap.version.minor < 5 && Leap.version.dot < 4) {
+        console.warn("LeapJS Version Check plugin incompatible with LeapJS pre 0.4.4");
+      }
+    }
+    this.on('ready', function() {
+      var current, message, required;
+      required = scope.requiredProtocolVersion;
+      current = this.connection.opts.requestProtocolVersion;
+      if (current < required) {
+        message = "Protocol Version too old. v" + required + " required, v" + current + " available.";
+        if (scope.disconnect) {
+          this.disconnect();
+          message += " Disconnecting.";
+        }
+        console.warn(message);
+        if (scope.alert) {
+          alert("Your Leap Software version is out of date.  Visit http://www.leapmotion.com/setup to update");
+        }
+        return this.emit('versionCheck.outdated', {
+          required: required,
+          current: current,
+          disconnect: scope.disconnect
+        });
+      }
+    });
+    return {};
+  };
+
+  if ((typeof Leap !== 'undefined') && Leap.Controller) {
+    Leap.Controller.plugin('versionCheck', versionCheck);
+  } else if (typeof module !== 'undefined') {
+    module.exports.versionCheck = versionCheck;
+  } else {
+    throw 'leap.js not included';
+  }
+
+}).call(this);
