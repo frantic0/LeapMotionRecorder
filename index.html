@@ -93,7 +93,7 @@
 
 	<div id="debugger"></div>
 
-	<h1>Leap JavaScript Sample</h1>
+	<h1>Rapid Leap</h1>
 
 	<div id="main">
 		<h3>Frame data:</h3>
@@ -213,7 +213,7 @@
 			var slider = document.getElementById('slider');
 			if (slider.noUiSlider != null)
 				slider.noUiSlider.destroy();
-
+			else
 			noUiSlider.create(slider, {
 				start: [0, window.controller.plugins.playback.player.recording.frameCount],
 				connect: true,
@@ -236,13 +236,12 @@
 
 			slider.noUiSlider.on('update', function(values, handle) {
 				console.log('values[' + handle + ']' + values[handle]);
+				window.controller.plugins.playback.player.setFrameIndex(values[handle]);
 				if (handle == 0) {
 					window.controller.plugins.playback.player.recording.leftCrop();
 				} else {
-					window.controller.plugins.playback.player.recording.rightCrop();
+					window.controller.plugins.playback.player.recording.rightCropPosition = values[handle];
 				}
-
-				// }
 			});
 
 			// updateSliderRange(0, window.controller.plugins.playback.player.recording.frameCount);
@@ -275,8 +274,6 @@
 		window.controller.plugins.playback.player.recording
 
 		console.log('framesCount ' + window.controller.plugins.playback.player.recording.frameCount);
-
-
 	}
 </script>
 
